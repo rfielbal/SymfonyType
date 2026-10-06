@@ -25,6 +25,9 @@ security:
 
             # https://symfony.com/doc/current/security/impersonating_user.html
             # switch_user: true
+            login_throttling:
+                max_attempts: 3
+                interval: '15 minutes'
 
     # Note: Only the *first* matching rule is applied
     access_control:

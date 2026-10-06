@@ -1,0 +1,103 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}
+	{{parent()}}Profil
+{% endblock %}
+{% block body %}
+	<div class="container-fluid">
+		<h1 class="text-center text-primary mt-4 pt-4 display-1 fw-bold">
+			Profil</h1>
+		<div class="row justify-content-center">
+			<div class="container mt-5 w-50">
+				<div class="row border-bottom py-2">
+					<div class="col-6 text-end fw-bold">Email :</div>
+					<div class="col-6 text-start">{{ app.user.email }}</div>
+				</div>
+
+				<div class="row border-bottom py-2">
+					<div class="col-6 text-end fw-bold">Nom :</div>
+					<div class="col-6 text-start">{{ app.user.nom|upper }}</div>
+				</div>
+				<div class="row border-bottom py-2">
+					<div class="col-6 text-end fw-bold">Prenom :</div>
+					<div class="col-6 text-start">{{ app.user.prenom }}</div>
+				</div>
+				<div class="row border-bottom py-2">
+					<div class="col-6 text-end fw-bold">Date d'inscription:</div>
+					<div class="col-6 text-start">{{ app.user.dateInscription| date('d-m-Y') }}</div>
+				</div>
+				<div class="row border-bottom py-2">
+					<div class="col-6 text-end fw-bold">Rôle:</div>
+					<div class="col-6 text-start">
+						{% if "ROLE_ADMIN" in app.user.roles %}
+							Administrateur
+						{% else %}
+							{% if "ROLE_MOD" in app.user.roles %}
+								Modérateur
+							{% else %}
+								Utilisateur
+							{% endif %}
+						{% endif %}
+					</div>
+				</div>
+				<div class="row border-bottom py-2">
+					<div class="col-6 text-end fw-bold">Nombre de fichier(s):</div>
+					<div class="col-6 text-start">{{ app.user.fichiers|length }}</div>
+				</div>
+				{% for f in app.user.fichiers %}
+					<div class="row border-bottom py-2">
+						<div class="col-6 text-end fw-bold">Fichier{{ loop.index }}:</div>
+						<div class="col-6 text-start">
+							<a href="{{path('app_telechargement_fichier', {'id':f.id})}}" style="text-decoration: none">{{f.nomOriginal}}</a>
+							{% for s in f.scategories %}
+								<li>{{s.numero}}
+									{{s.libelle | capitalize}}</li>
+							{% endfor %}
+						</div>
+					</div>
+				{% endfor %}
+			</div>
+		</div>
+	</div>
+	{{ form_start(form) }}
+	{{form_row(form.fichier)}}
+	<div class="table-responsive">
+		<table class="table">
+			{% set id = null %}
+			{% for scategorie in scategories %}
+				<tr>
+					{% if id != scategorie.categorie.id %}
+						{% set id = scategorie.categorie.id %}
+						<tr>
+							<td class="text-primary fw-bold">{{scategorie.categorie.id}}
+								{{scategorie.categorie.libelle}}
+							</td>
+							<td></td>
+						</tr>
+					{% endif %}
+					<td class="text-primary">-{{scategorie.numero}}
+						{{scategorie.libelle}}</td>
+					<td class="text-primary">{{ form_widget(form.scategories[scategorie.id]) }}</td>
+				</tr>
+			{% endfor %}
+		</table>
+	</div>
+	<div class="container-fluid">
+	{{ form_row(form.envoyer) }}
+	{{ form_end(form) }}
+	<div class="container-fluid">
+		<h1 class="text-center text-primary mt-4 pt-4 display-1 fw-bold">Modifier le mot de passe</h1>
+		<div class="row justify-content-center">
+			<div class="col-12 col-md-6 p-4 m-0 text-primary">
+		{{ form_start(changePasswordForm) }}
+		{{ form_row(changePasswordForm.oldPassword) }}
+		{{ form_row(changePasswordForm.newPassword) }}
+
+		<div class="row justify-content-center">
+			<button type="submit" class="btn btn-lg btn-primary mt-2">Mettre à jour le mot de passe</button>
+		</div>
+		{{ form_end(changePasswordForm) }}
+	</div>
+	</div>
+
+{% endblock %}
