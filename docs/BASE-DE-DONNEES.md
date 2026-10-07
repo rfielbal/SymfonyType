@@ -20,9 +20,9 @@ Réponses équivalentes en mode interactif : `User`, stockage Doctrine oui, iden
 
 Les champs métier et les historiques ont ensuite été ajoutés. Le SQL de la migration initiale est issu du schéma Doctrine pour MariaDB. Il a été préparé hors connexion : il n'a pas encore été appliqué sur le nuage.
 
-## Fonctionnalités et exigences
+## Fonctionnalités
 
-L'inscription, la connexion, le profil, les contrôles d'accès, la suspension, les historiques et l'administration sont implémentés. Voir [EXIGENCES-DU-SUJET.md](EXIGENCES-DU-SUJET.md) pour retrouver chaque exigence, son code et les limites de validation.
+L'inscription, la connexion, le profil, les contrôles d'accès, la suspension, les historiques et l'administration sont implémentés. Les contrôles et leurs limites de validation sont détaillés dans [SECURITE.md](SECURITE.md).
 
 `UserRepository::upgradePassword()` renouvelle un hachage technique sans changer le mot de passe choisi : ce renouvellement ne doit pas être ajouté à l'historique des changements de mot de passe.
 
@@ -77,7 +77,7 @@ Lire puis confirmer la demande de migration. Ne pas exécuter `make:migration` p
 
 Résultat attendu : les trois tables métier et la table technique `doctrine_migration_versions`. La validation doit confirmer un mapping valide et un schéma synchronisé.
 
-## Comprendre le mot de passe
+## Stockage et changement du mot de passe
 
 `User.password` contient le hachage actuel. Lors d'un changement, l'application vérifie le nouveau candidat contre le hachage actuel et chaque ancien hachage. Si le changement est accepté, elle archive l'ancien hachage et enregistre le nouveau ensemble dans une transaction. Aucun mot de passe en clair ne sera conservé.
 
