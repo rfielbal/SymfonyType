@@ -1,0 +1,72 @@
+name: Déploiement sur 5183
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+# Un seul déploiement à la fois, sans interrompre celui en cours.
+concurrency:
+  group: deploiement-5183
+  cancel-in-progress: false
+
+jobs:
+  deploiement:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Mettre à jour le site sur 5183
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          # Prépare la connexion SSH avec les secrets du dépôt.
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+          ssh \
+            -i ~/.ssh/deploy_key \
+            -p "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 \
+            "$SSH_USER@$SSH_HOST" 'bash -se' <<'REMOTE'
+          # Arrête le déploiement dès qu'une commande échoue.
+          set -eu
+          cd /var/www/html/SymfonyType
+
+          # Vérifie la branche et refuse les modifications locales.
+          test "$(git branch --show-current)" = "main"
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Déploiement arrêté : modifications locales sur 5183."
+            exit 1
+          fi
+
+          # Récupère main sans créer de fusion sur le serveur.
+          git pull --ff-only origin main
+
+          # Installe les versions fixées dans composer.lock.
+          composer install --no-interaction --prefer-dist
+
+          # Applique les migrations en attente puis renouvelle le cache.
+          php bin/console doctrine:migrations:migrate --no-interaction
+          php bin/console cache:clear
+
+          # Affiche le commit installé pour vérifier le déploiement.
+          git log -1 --oneline
+          REMOTE
+
+      - name: Supprimer la clé temporaire
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
