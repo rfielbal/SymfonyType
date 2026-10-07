@@ -1,0 +1,19 @@
+{% extends 'base.html.twig' %}
+{% block title %}Créer un compte · Gestion des accès{% endblock %}
+{% block body %}
+<section class="card" style="max-width:650px;margin:2rem auto">
+    <h1>Créer un compte</h1>
+    <p class="muted">Les mots de passe doivent contenir au moins 10 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial. Les mots de passe compromis sont refusés.</p>
+    {{ form_start(registrationForm) }}
+        {{ form_errors(registrationForm) }}
+        {{ form_row(registrationForm.email) }}
+        {{ form_row(registrationForm.nom) }}
+        {{ form_row(registrationForm.prenom) }}
+        {{ form_row(registrationForm.adrRue) }}
+        {{ form_row(registrationForm.ville) }}
+        {{ form_row(registrationForm.cp) }}
+        {{ form_row(registrationForm.plainPassword) }}
+        <button type="submit">Créer mon compte</button>
+    {{ form_end(registrationForm) }}
+</section>
+{% endblock %}

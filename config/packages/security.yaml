@@ -25,6 +25,20 @@ security:
 
             # https://symfony.com/doc/current/security/impersonating_user.html
             # switch_user: true
+            user_checker: App\Security\UserChecker
+
+            form_login:
+                login_path: app_login
+                check_path: app_login
+                enable_csrf: true
+                username_parameter: email
+                password_parameter: password
+                default_target_path: app_profile
+
+            logout:
+                path: app_logout
+                target: app_home
+
             login_throttling:
                 max_attempts: 3
                 interval: '15 minutes'
@@ -33,6 +47,17 @@ security:
     access_control:
         # - { path: ^/admin, roles: ROLE_ADMIN }
         # - { path: ^/profile, roles: ROLE_USER }
+    
+    role_hierarchy:
+        ROLE_ADMIN: [ROLE_USER]
+
+    # Note: Only the *first* matching rule is applied
+    access_control:
+        # - { path: ^/profile, roles: ROLE_USER }
+        - { path: ^/private, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/admin, roles: ROLE_ADMIN }
+
+    
 
 when@test:
     security:

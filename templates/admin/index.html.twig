@@ -1,0 +1,48 @@
+{% extends 'base.html.twig' %}
+{% block title %}Administration · Gestion des accès
+{% endblock %}
+{% block body %}
+	<div class="actions" style="justify-content:space-between">
+		<h1>Gestion des comptes</h1>
+		<a class="btn" href="{{ path('admin_user_new') }}">Ajouter un utilisateur</a>
+	</div>
+	<div class="card" style="overflow-x:auto">
+		<table>
+			<thead>
+				<tr>
+					<th>Utilisateur</th>
+					<th>Rôles</th>
+					<th>État</th>
+					<th>Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for user in users %}
+					<tr>
+						<td>{{ user.prenom }}
+							{{ user.nom }}<br><span class="muted">{{ user.email }}</span>
+						</td>
+						<td>{{ user.roles|join(', ') }}</td>
+						<td>{{ user.isActif ? 'Actif' : 'Suspendu' }}</td>
+						<td>
+							<div class="actions">
+								<a class="btn secondary" href="{{ path('admin_user_edit', {id:user.id}) }}">Modifier</a>
+								<a class="btn secondary" href="{{ path('admin_user_logins', {id:user.id}) }}">Historique des connexions</a>
+								<form class="inline" method="post" action="{{ path('admin_user_toggle', {id:user.id}) }}"><input type="hidden" name="_token" value="{{ csrf_token('toggle-user-' ~ user.id) }}"><button class="secondary" type="submit">{{ user.isActif ? 'Suspendre' : 'Réactiver' }}</button>
+								</form>
+								{% if app.user.id != user.id %}
+									<form class="inline" method="post" action="{{ path('admin_user_delete', {id:user.id}) }}" onsubmit="return confirm('Supprimer définitivement ce compte et son historique ?')"><input type="hidden" name="_token" value="{{ csrf_token('delete-user-' ~ user.id) }}"><button class="danger" type="submit">Supprimer</button>
+									</form>
+								{% endif %}
+							</div>
+						</td>
+					</tr>
+				{% else %}
+					<tr>
+						<td colspan="4">Aucun compte.</td>
+					</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+{% endblock %}

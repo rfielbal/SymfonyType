@@ -233,6 +233,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->estActif;
     }
 
+    public function getEstActif(): bool
+    {
+        return $this->estActif;
+    }
+
     public function setEstActif(bool $estActif): static
     {
         $this->estActif = $estActif;

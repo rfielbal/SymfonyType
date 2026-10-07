@@ -1,0 +1,25 @@
+{% extends 'base.html.twig' %}
+{% block title %}{{ title }} · Administration{% endblock %}
+{% block body %}
+<section class="card" style="max-width:700px">
+    <h1>{{ title }}</h1>
+    {{ form_start(form) }}
+        {{ form_errors(form) }}
+        {{ form_row(form.email) }}{{ form_row(form.nom) }}{{ form_row(form.prenom) }}
+        {{ form_row(form.adrRue) }}{{ form_row(form.ville) }}{{ form_row(form.cp) }}
+        <fieldset class="role-picker">
+            <legend>Privilèges</legend>
+            <div class="role-options">
+                {% for role in form.roles %}
+                    <label class="role-option">{{ form_widget(role) }}<span>{{ role.vars.label }}</span></label>
+                {% endfor %}
+            </div>
+            {{ form_errors(form.roles) }}
+            <p class="muted">Les comptes non administrateurs disposent automatiquement du rôle Utilisateur.</p>
+        </fieldset>
+        {{ form_row(form.estActif) }}
+        {% if form.plainPassword is defined %}{{ form_row(form.plainPassword) }}{% endif %}
+        <div class="actions"><button type="submit">Enregistrer</button><a class="btn secondary" href="{{ path('admin_users') }}">Annuler</a></div>
+    {{ form_end(form) }}
+</section>
+{% endblock %}

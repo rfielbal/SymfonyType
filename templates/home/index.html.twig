@@ -1,0 +1,27 @@
+{% extends 'base.html.twig' %}
+{% block title %}Accueil · Gestion des accès{% endblock %}
+{% block body %}
+<section class="hero">
+    <div class="eyebrow">Sécurité · Comptes · Habilitations</div>
+    {% if app.user %}
+        <h1>Bienvenue, {{ app.user.prenom }}.</h1>
+        <p>Retrouve ton profil et gère les paramètres de sécurité de ton compte.</p>
+        <div class="home-cta">
+            <a class="btn" href="{{ path('app_profile') }}">Accéder à mon profil</a>
+            {% if is_granted('ROLE_ADMIN') %}<a class="btn secondary" href="{{ path('admin_users') }}">Gérer les utilisateurs</a>{% endif %}
+        </div>
+    {% else %}
+        <h1>Une gestion des accès simple et sécurisée.</h1>
+        <p>Connecte-toi pour accéder à ton espace ou crée un compte. Les mots de passe sont protégés et les accès administrés selon les rôles.</p>
+        <div class="home-cta">
+            <a class="btn" href="{{ path('app_login') }}">Se connecter</a>
+            <a class="btn secondary" href="{{ path('app_register') }}">Créer un compte</a>
+        </div>
+    {% endif %}
+</section>
+<section class="home-grid" aria-label="Fonctionnalités">
+    <article class="card"><div class="icon">🔐</div><h2>Comptes protégés</h2><p>Des mots de passe robustes, contrôlés contre les fuites connues et les réutilisations.</p></article>
+    <article class="card"><div class="icon">🛡️</div><h2>Accès maîtrisés</h2><p>Les rôles déterminent l’accès aux fonctions réservées et l’administrateur peut suspendre un compte.</p></article>
+    <article class="card"><div class="icon">🕒</div><h2>Historique des connexions</h2><p>Les connexions réussies sont enregistrées et consultables par l’administration.</p></article>
+</section>
+{% endblock %}
