@@ -20,11 +20,11 @@ Réponses équivalentes en mode interactif : `User`, stockage Doctrine oui, iden
 
 Les champs métier et les historiques ont ensuite été ajoutés. Le SQL de la migration initiale est issu du schéma Doctrine pour MariaDB. Il a été préparé hors connexion : il n'a pas encore été appliqué sur le nuage.
 
-## Ce qui viendra ensuite
+## Fonctionnalités et exigences
 
-Les formulaires, la connexion, les contrôles de rôles et de suspension, l'enregistrement automatique des historiques et la vérification des anciens mots de passe ne sont pas encore implémentés. La présence des tables ne met pas ces protections en place.
+L'inscription, la connexion, le profil, les contrôles d'accès, la suspension, les historiques et l'administration sont implémentés. Voir [EXIGENCES-DU-SUJET.md](EXIGENCES-DU-SUJET.md) pour retrouver chaque exigence, son code et les limites de validation.
 
-`UserRepository::upgradePassword()` vient de MakerBundle : il renouvelle un hachage technique sans changer le mot de passe choisi. Ce renouvellement ne doit pas être ajouté à l'historique des changements de mot de passe.
+`UserRepository::upgradePassword()` renouvelle un hachage technique sans changer le mot de passe choisi : ce renouvellement ne doit pas être ajouté à l'historique des changements de mot de passe.
 
 ## Installation sur le nuage de développement
 
@@ -79,7 +79,7 @@ Résultat attendu : les trois tables métier et la table technique `doctrine_mig
 
 ## Comprendre le mot de passe
 
-`User.password` contient le hachage actuel. Lors d'un futur changement, l'application vérifiera le nouveau candidat contre le hachage actuel et chaque ancien hachage. Si le changement est accepté, elle archivera l'ancien hachage et enregistrera le nouveau ensemble dans une transaction. Aucun mot de passe en clair ne sera conservé.
+`User.password` contient le hachage actuel. Lors d'un changement, l'application vérifie le nouveau candidat contre le hachage actuel et chaque ancien hachage. Si le changement est accepté, elle archive l'ancien hachage et enregistre le nouveau ensemble dans une transaction. Aucun mot de passe en clair ne sera conservé.
 
 ## Deux nuages distincts
 

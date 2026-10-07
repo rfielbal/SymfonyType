@@ -9,12 +9,14 @@ use Symfony\Component\Validator\Constraints as Assert;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Security\Core\User\EquatableInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_EMAIL', fields: ['email'])]
 #[ORM\Table(name: 'user')]
+// EXIGENCE 1 — Unicité en base + validation serveur des coordonnées via Assert.
 #[UniqueEntity(fields: ['email'], message: 'Cette adresse email est déjà utilisée.')]
-class User implements UserInterface, PasswordAuthenticatedUserInterface
+class User implements UserInterface, PasswordAuthenticatedUserInterface, EquatableInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -67,6 +69,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private ?\DateTimeImmutable $dateInscription = null;
 
+    // EXIGENCE 5 — Suspension sans supprimer le compte ni ses historiques.
     #[ORM\Column]
     private bool $estActif = true;
 
@@ -148,6 +151,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $data["\0" . self::class . "\0password"] = hash('crc32c', (string) $this->password);
 
         return $data;
+    }
+
+    // EXIGENCE 5 — À chaque requête, Symfony compare la session avec le compte en base.
+    // Une suspension ou un changement de rôle invalide donc aussi une session déjà ouverte.
+    public function isEqualTo(UserInterface $user): bool
+    {
+        return $user instanceof self
+            && $this->email === $user->email
+            && $this->estActif === $user->estActif
+            && $this->getRoles() === $user->getRoles()
+            // Symfony stocke l'empreinte CRC32C du hachage dans la session (__serialize).
+            && ($this->password === $user->password
+                || $this->password === hash('crc32c', (string) $user->password));
     }
 
     #[\Deprecated]

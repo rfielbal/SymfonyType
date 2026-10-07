@@ -12,13 +12,13 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Validator\Constraints as Assert;
-use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactoryInterface;
+use Symfony\Component\Form\FormError;
 
 final class ProfileController extends AbstractController
 {
-    #[Route('/profil', name: 'app_profile')]
-    public function index(Request $request, EntityManagerInterface $entityManager, HistoriqueMdpRepository $history, UserPasswordHasherInterface $hasher, ValidatorInterface $validator): Response
+    #[Route('/profil', name: 'app_profile', methods: ['GET', 'POST'])]
+    public function index(Request $request, EntityManagerInterface $entityManager, HistoriqueMdpRepository $history, UserPasswordHasherInterface $hasher, PasswordHasherFactoryInterface $hasherFactory): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         /** @var User $user */
@@ -28,27 +28,22 @@ final class ProfileController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $newPassword = (string) $form->get('newPassword')->getData();
+            // EXIGENCE 3 — Vérifier le candidat contre le hachage actuel et TOUS les anciens.
+            $passwordVerifier = $hasherFactory->getPasswordHasher($user);
             $hashes = [$user->getPassword()];
             foreach ($history->findBy(['user' => $user]) as $oldPassword) {
                 $hashes[] = $oldPassword->getAncienMdpHache();
             }
 
             foreach ($hashes as $oldHash) {
-                if ($oldHash && $hasher->isPasswordValid($user, $newPassword, $oldHash)) {
-                    $form->get('newPassword')->addError(new \Symfony\Component\Form\FormError('Ce mot de passe a déjà été utilisé. Choisis-en un nouveau.'));
+                if ($oldHash && $passwordVerifier->verify($oldHash, $newPassword)) {
+                    $form->get('newPassword')->get('first')->addError(new FormError('Ce mot de passe a déjà été utilisé. Choisis-en un nouveau.'));
                     break;
                 }
             }
 
-            $violations = $validator->validate($newPassword, [
-                new Assert\PasswordStrength(minScore: Assert\PasswordStrength::STRENGTH_MEDIUM, message: 'Choisis un mot de passe plus difficile à deviner.'),
-                new Assert\NotCompromisedPassword(message: 'Ce mot de passe apparaît dans une fuite de données. Choisis-en un autre.'),
-            ]);
-            foreach ($violations as $violation) {
-                $form->get('newPassword')->addError(new \Symfony\Component\Form\FormError($violation->getMessage()));
-            }
-
             if ($form->get('newPassword')->getErrors(true)->count() === 0) {
+                // Un seul flush : archivage et nouveau hachage sont enregistrés dans la même transaction.
                 $entityManager->persist((new HistoriqueMdp())->setUser($user)->setAncienMdpHache($user->getPassword()));
                 $user->setPassword($hasher->hashPassword($user, $newPassword));
                 $entityManager->flush();

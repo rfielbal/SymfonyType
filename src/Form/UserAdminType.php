@@ -11,7 +11,7 @@ use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\Validator\Constraints as Assert;
+use App\Security\PasswordPolicy;
 
 class UserAdminType extends AbstractType
 {
@@ -36,16 +36,7 @@ class UserAdminType extends AbstractType
             $builder->add('plainPassword', PasswordType::class, [
                 'mapped' => false,
                 'label' => 'Mot de passe initial',
-                'constraints' => [
-                    new Assert\NotBlank(),
-                    new Assert\Length(min: 10, max: 4096),
-                    new Assert\Regex(pattern: '/[a-z]/'),
-                    new Assert\Regex(pattern: '/[A-Z]/'),
-                    new Assert\Regex(pattern: '/\d/'),
-                    new Assert\Regex(pattern: '/[^a-zA-Z0-9]/'),
-                    new Assert\PasswordStrength(minScore: Assert\PasswordStrength::STRENGTH_MEDIUM),
-                    new Assert\NotCompromisedPassword(),
-                ],
+                'constraints' => PasswordPolicy::constraints(),
             ]);
         }
     }

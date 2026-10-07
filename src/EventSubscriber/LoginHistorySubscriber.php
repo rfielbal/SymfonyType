@@ -14,6 +14,7 @@ final class LoginHistorySubscriber
     {
     }
 
+    // EXIGENCE 6 — Une ligne datée pour chaque connexion réussie (pas chaque page visitée).
     #[AsEventListener(event: LoginSuccessEvent::class)]
     public function onLoginSuccess(LoginSuccessEvent $event): void
     {

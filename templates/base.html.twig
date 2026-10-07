@@ -3,29 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#142d4e">
     <title>{% block title %}Gestion des accès{% endblock %}</title>
-    <style>
-        :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#152238;background:#f4f7fb}*{box-sizing:border-box}body{margin:0}header{background:#142d4e;color:white;padding:1rem max(1.2rem,calc((100% - 1050px)/2));display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}header a{color:white;text-decoration:none;margin-right:1rem}main{max-width:1050px;margin:2rem auto;padding:0 1.2rem}.card{background:#fff;border:1px solid #dbe3ee;border-radius:12px;padding:1.5rem;margin:1rem 0;box-shadow:0 4px 18px #172b4d0a}h1{font-size:1.8rem}label{display:block;font-weight:600;margin:.9rem 0 .35rem}input,textarea,select{font:inherit;padding:.65rem .75rem;border:1px solid #bac8d9;border-radius:7px;width:100%;max-width:100%}input[type=checkbox]{width:auto}.btn,button{display:inline-block;background:#1769aa;color:white;border:0;border-radius:7px;padding:.65rem 1rem;text-decoration:none;font:inherit;cursor:pointer}.btn.secondary{background:#52647c}.btn.danger,button.danger{background:#a53232}.actions{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap}.flash{padding:.8rem 1rem;background:#e3f5e9;border-radius:8px;margin:.6rem 0}.flash.error{background:#fde8e8}.error{color:#a32323}ul{padding-left:1.2rem}table{width:100%;border-collapse:collapse;background:white}th,td{text-align:left;padding:.75rem;border-bottom:1px solid #dbe3ee;vertical-align:top}th{background:#eaf0f7}.muted{color:#64748b}form.inline{display:inline}fieldset{border:1px solid #dbe3ee;border-radius:8px;padding:1rem;margin:1rem 0}fieldset label{display:inline-flex;gap:.45rem;align-items:center;margin-right:1rem}.role-picker legend{font-weight:700;padding:0 .35rem}.role-options{display:flex;flex-wrap:wrap;gap:.65rem}.role-picker .role-option{display:inline-flex;align-items:center;gap:.55rem;margin:0;padding:.65rem .85rem;border:1px solid #dbe3ee;border-radius:8px;cursor:pointer}.role-picker .role-option input{margin:0}.role-picker .muted{margin:.8rem 0 0;font-size:.9rem}.brand{font-weight:750;letter-spacing:.02em}.hero{padding:3rem 2.5rem;background:linear-gradient(130deg,#142d4e,#1769aa);border-radius:18px;color:#fff}.hero h1{font-size:clamp(2rem,5vw,3.3rem);line-height:1.1;max-width:720px;margin:.4rem 0 1rem}.hero p{font-size:1.1rem;max-width:700px;color:#e4efff;line-height:1.65}.hero .btn{background:#fff;color:#142d4e;font-weight:700}.hero .btn.secondary{background:#ffffff20;color:#fff;border:1px solid #ffffff80}.eyebrow{text-transform:uppercase;letter-spacing:.13em;font-size:.78rem;font-weight:700;color:#a9d5ff}.home-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-top:1.5rem}.home-grid .card{margin:0}.home-grid h2{font-size:1.1rem}.home-grid p{color:#64748b;line-height:1.55}.home-grid .icon{font-size:1.5rem}.home-cta{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.5rem}
-    </style>
+    <link rel="icon" type="image/svg+xml" href="{{ app.request.basePath }}/favicon.svg">
+    <link rel="stylesheet" href="{{ app.request.basePath }}/styles/app.css">
 </head>
 <body>
-<header>
-    <a class="brand" href="{{ path('app_home') }}">Gestion des accès</a>
-    <nav>
-        <a href="{{ path('app_home') }}">Accueil</a>
-        {% if app.user %}
-            <a href="{{ path('app_profile') }}">Mon profil</a>
-            {% if is_granted('ROLE_ADMIN') %}<a href="{{ path('admin_users') }}">Administration</a>{% endif %}
-            <a href="{{ path('app_logout') }}">Déconnexion</a>
-        {% else %}
-            <a href="{{ path('app_login') }}">Connexion</a>
-            <a href="{{ path('app_register') }}">Inscription</a>
-        {% endif %}
-    </nav>
+{% set currentRoute = app.request.attributes.get('_route') %}
+<a class="skip-link" href="#contenu">Aller au contenu</a>
+<header class="site-header">
+    <div class="header-inner">
+        <a class="brand" href="{{ path('app_home') }}"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>Gestion des accès<span class="brand-caption">Espace utilisateurs</span></span></a>
+        <nav aria-label="Navigation principale">
+            <a href="{{ path('app_home') }}" {% if currentRoute == 'app_home' %}aria-current="page"{% endif %}>Accueil</a>
+            {% if app.user %}
+                <a href="{{ path('app_profile') }}" {% if currentRoute == 'app_profile' %}aria-current="page"{% endif %}>Mon profil</a>
+                {% if is_granted('ROLE_ADMIN') %}<a href="{{ path('admin_users') }}" {% if currentRoute starts with 'admin_' %}aria-current="page"{% endif %}>Administration</a>{% endif %}
+                <a class="nav-action" href="{{ logout_path() }}">Déconnexion <span aria-hidden="true">↗</span></a>
+            {% else %}
+                <a href="{{ path('app_login') }}" {% if currentRoute == 'app_login' %}aria-current="page"{% endif %}>Connexion</a>
+                <a class="nav-action" href="{{ path('app_register') }}" {% if currentRoute == 'app_register' %}aria-current="page"{% endif %}>Créer un compte <span aria-hidden="true">↗</span></a>
+            {% endif %}
+        </nav>
+    </div>
 </header>
-<main>
-    {% for label, messages in app.flashes %}{% for message in messages %}<div class="flash {{ label == 'error' ? 'error' : '' }}">{{ message }}</div>{% endfor %}{% endfor %}
+<main id="contenu" tabindex="-1">
+    {% for label, messages in app.flashes %}{% for message in messages %}<div role="status" class="flash {{ label == 'error' ? 'error' : '' }}">{{ message }}</div>{% endfor %}{% endfor %}
     {% block body %}{% endblock %}
 </main>
+<footer class="site-footer"><span>Gestion des accès</span><span>Votre compte, votre espace.</span></footer>
 </body>
 </html>

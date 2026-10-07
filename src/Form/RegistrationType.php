@@ -10,7 +10,7 @@ use Symfony\Component\Form\Extension\Core\Type\RepeatedType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\Validator\Constraints as Assert;
+use App\Security\PasswordPolicy;
 
 class RegistrationType extends AbstractType
 {
@@ -30,16 +30,7 @@ class RegistrationType extends AbstractType
                 'first_options' => ['label' => 'Mot de passe', 'attr' => ['autocomplete' => 'new-password']],
                 'second_options' => ['label' => 'Confirmer le mot de passe', 'attr' => ['autocomplete' => 'new-password']],
                 'invalid_message' => 'Les deux mots de passe ne correspondent pas.',
-                'constraints' => [
-                    new Assert\NotBlank(['message' => 'Choisis un mot de passe.']),
-                    new Assert\Length(min: 10, minMessage: 'Le mot de passe doit contenir au moins {{ limit }} caractères.', max: 4096),
-                    new Assert\Regex(pattern: '/[a-z]/', message: 'Ajoute au moins une minuscule.'),
-                    new Assert\Regex(pattern: '/[A-Z]/', message: 'Ajoute au moins une majuscule.'),
-                    new Assert\Regex(pattern: '/\d/', message: 'Ajoute au moins un chiffre.'),
-                    new Assert\Regex(pattern: '/[^a-zA-Z0-9]/', message: 'Ajoute au moins un caractère spécial.'),
-                    new Assert\PasswordStrength(minScore: Assert\PasswordStrength::STRENGTH_MEDIUM, message: 'Choisis un mot de passe plus difficile à deviner.'),
-                    new Assert\NotCompromisedPassword(message: 'Ce mot de passe apparaît dans une fuite de données. Choisis-en un autre.'),
-                ],
+                'constraints' => PasswordPolicy::constraints(),
             ]);
     }
 

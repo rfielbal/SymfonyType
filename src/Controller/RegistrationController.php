@@ -13,13 +13,14 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class RegistrationController extends AbstractController
 {
-    #[Route('/inscription', name: 'app_register')]
+    #[Route('/inscription', name: 'app_register', methods: ['GET', 'POST'])]
     public function register(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $hasher): Response
     {
         $user = new User();
         $form = $this->createForm(RegistrationType::class, $user);
         $form->handleRequest($request);
 
+        // EXIGENCES 1 et 2 — Valider côté serveur, imposer ROLE_USER puis hacher avant insertion.
         if ($form->isSubmitted() && $form->isValid()) {
             $plainPassword = $form->get('plainPassword')->getData();
             $user->setRoles(['ROLE_USER']);

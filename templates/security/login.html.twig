@@ -1,8 +1,10 @@
 {% extends 'base.html.twig' %}
 {% block title %}Connexion · Gestion des accès{% endblock %}
 {% block body %}
-<section class="card" style="max-width:520px;margin:3rem auto">
+<section class="card auth-card">
+    <p class="eyebrow">Votre espace personnel</p>
     <h1>Connexion</h1>
+    <p class="muted form-intro">Ravi de vous retrouver. Saisissez vos identifiants.</p>
     {% if error %}<div class="flash error">{{ error.messageKey|trans(error.messageData, 'security') }}</div>{% endif %}
     <form method="post">
         <label for="email">Adresse e-mail</label>
@@ -10,7 +12,7 @@
         <label for="password">Mot de passe</label>
         <input id="password" type="password" name="password" autocomplete="current-password" required>
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
-        <p><button type="submit">Se connecter</button></p>
+        <p><button class="wide" type="submit">Se connecter</button></p>
     </form>
     <p class="muted">Pas encore de compte ? <a href="{{ path('app_register') }}">Créer un compte</a></p>
 </section>
