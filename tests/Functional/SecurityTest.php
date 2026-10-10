@@ -67,7 +67,7 @@ final class SecurityTest extends WebTestCase
         ]);
     }
 
-    public function testInscriptionValideEtHachage(): void
+    public function testInscriptionValideHachageEtConnexionAutomatique(): void
     {
         $this->client->request('GET', '/inscription');
         $this->client->submitForm('Créer mon compte', [
@@ -77,11 +77,16 @@ final class SecurityTest extends WebTestCase
             'registration[plainPassword][first]' => self::PASSWORD,
             'registration[plainPassword][second]' => self::PASSWORD,
         ]);
-        self::assertResponseRedirects('/connexion');
+        self::assertResponseRedirects('/profil');
         $user = $this->em()->getRepository(User::class)->findOneBy(['email' => 'nouveau@example.test']);
         self::assertNotSame(self::PASSWORD, $user->getPassword());
         self::assertTrue(static::getContainer()->get(UserPasswordHasherInterface::class)->isPasswordValid($user, self::PASSWORD));
         self::assertSame(['ROLE_USER'], $user->getRoles());
+        $this->client->followRedirect();
+        self::assertResponseIsSuccessful();
+        self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM historique_connexion'));
+        $this->client->request('GET', '/admin');
+        self::assertResponseStatusCodeSame(403);
     }
 
     public function testInscriptionInvalideSansInsertion(): void
