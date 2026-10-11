@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Form\RegistrationType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -14,7 +15,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final class RegistrationController extends AbstractController
 {
     #[Route('/inscription', name: 'app_register', methods: ['GET', 'POST'])]
-    public function register(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $hasher): Response
+    public function register(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $hasher, Security $security): Response
     {
         $user = new User();
         $form = $this->createForm(RegistrationType::class, $user);
@@ -28,8 +29,9 @@ final class RegistrationController extends AbstractController
             $entityManager->persist($user);
             $entityManager->flush();
 
-            $this->addFlash('success', 'Ton compte est créé. Tu peux maintenant te connecter.');
-            return $this->redirectToRoute('app_login');
+            // Connexion Symfony après inscription : la session et l’historique suivent le même parcours qu’une connexion classique.
+            $this->addFlash('success', 'Ton compte est créé. Tu es maintenant connecté.');
+            return $security->login($user, 'form_login', 'main') ?? $this->redirectToRoute('app_profile');
         }
 
         return $this->render('registration/register.html.twig', ['registrationForm' => $form]);

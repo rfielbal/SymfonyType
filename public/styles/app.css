@@ -105,7 +105,8 @@ th { background: #f7f9fc; color: var(--muted); font-size: 10px; text-transform: 
 tbody tr:last-child td { border-bottom: 0; }
 td .actions { gap: 6px; }
 td .btn, td button { padding: 8px 10px; font-size: 11px; min-height: 36px; }
-form.inline { display: inline; }
+form.inline { display: inline-flex; margin: 0; }
+form.inline > button { margin-top: 0; }
 fieldset { border: 1px solid var(--line); padding: 18px; border-radius: 6px; margin: 25px 0; }
 legend { font-size: 12px; font-weight: 600; padding: 0 6px; }
 .role-options { display: flex; flex-wrap: wrap; gap: 12px; }
