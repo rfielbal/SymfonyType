@@ -5,32 +5,36 @@ namespace App\Tests\Integration;
 use App\Entity\HistoriqueConnexion;
 use App\Entity\HistoriqueMdp;
 use App\Entity\User;
-use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception\NotNullConstraintViolationException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use Doctrine\ORM\EntityManager;
-use Doctrine\ORM\ORMSetup;
-use Doctrine\ORM\Tools\SchemaTool;
-use PHPUnit\Framework\TestCase;
+use Doctrine\ORM\EntityManagerInterface;
+use App\Tests\Support\TestDatabase;
+use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-/** Tests du modèle dans SQLite en mémoire, sans accès aux bases des nuages. */
-final class ModeleDonneesTest extends TestCase
+/** Tests du modèle sur la base MariaDB dédiée dbSymfonyType_test. */
+final class ModeleDonneesTest extends KernelTestCase
 {
-    private EntityManager $em;
+    private EntityManagerInterface $em;
+    private ?TestDatabase $database = null;
 
     protected function setUp(): void
     {
-        $config = ORMSetup::createAttributeMetadataConfiguration([dirname(__DIR__, 2).'/src/Entity'], true);
-        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
-        $connection->executeStatement('PRAGMA foreign_keys = ON');
-        $this->em = new EntityManager($connection, $config);
-        (new SchemaTool($this->em))->createSchema($this->em->getMetadataFactory()->getAllMetadata());
+        static::bootKernel();
+        $this->em = static::getContainer()->get(EntityManagerInterface::class);
+        $database = new TestDatabase($this->em->getConnection(), static::$kernel->getEnvironment());
+        $database->reset();
+        $this->database = $database;
     }
 
     protected function tearDown(): void
     {
-        $this->em->close();
-        $this->em->getConnection()->close();
+        try {
+            $this->database?->reset();
+        } finally {
+            $this->database?->close();
+            $this->database = null;
+            parent::tearDown();
+        }
     }
 
     private function creerUtilisateur(): User
