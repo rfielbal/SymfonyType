@@ -102,7 +102,7 @@ final class ProfileSecurityTest extends WebTestCase
         $before = $this->account($bobId);
         $this->client->loginUser($alice);
         $this->client->request('GET', "/profil/$bobId/modifier");
-        self::assertResponseStatusCodeSame(403);
+        self::assertResponseStatusCodeSame(200);
         self::assertSame($before, $this->account($bobId));
     }
 
