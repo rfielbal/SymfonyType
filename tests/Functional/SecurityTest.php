@@ -5,34 +5,37 @@ namespace App\Tests\Functional;
 use App\Entity\HistoriqueMdp;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Tools\SchemaTool;
+use App\Tests\Support\TestDatabase;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
-/** Base SQLite temporaire : aucun compte réel ni base du nuage n'est modifié. */
+/** Tests sur la base MariaDB dédiée dbSymfonyType_test, déjà migrée. */
 final class SecurityTest extends WebTestCase
 {
     private KernelBrowser $client;
-    private string $databaseFile;
+    private ?TestDatabase $database = null;
     private const PASSWORD = 'Orbite!Nuage-7319';
     private const NEW_PASSWORD = 'Rivage!Comete-8264';
 
     protected function setUp(): void
     {
-        $this->databaseFile = tempnam(sys_get_temp_dir(), 'symfonytype-test-');
-        $_SERVER['DATABASE_URL'] = $_ENV['DATABASE_URL'] = 'sqlite:///'.$this->databaseFile;
         $this->client = static::createClient();
-        $em = $this->em();
-        (new SchemaTool($em))->createSchema($em->getMetadataFactory()->getAllMetadata());
+        $database = new TestDatabase($this->em()->getConnection(), static::$kernel->getEnvironment());
+        $database->reset();
+        $this->database = $database;
         static::getContainer()->get('cache.rate_limiter')->clear();
     }
 
     protected function tearDown(): void
     {
-        parent::tearDown();
-        unlink($this->databaseFile);
-        unset($_SERVER['DATABASE_URL'], $_ENV['DATABASE_URL']);
+        try {
+            $this->database?->reset();
+        } finally {
+            $this->database?->close();
+            $this->database = null;
+            parent::tearDown();
+        }
     }
 
     private function em(): EntityManagerInterface
