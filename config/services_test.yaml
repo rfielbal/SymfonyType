@@ -1,0 +1,12 @@
+services:
+    test.pwned_password_http_client:
+        class: Symfony\Component\HttpClient\MockHttpClient
+        factory: ['App\Tests\Support\PwnedPasswordHttpClient', 'create']
+
+    validator.not_compromised_password:
+        class: Symfony\Component\Validator\Constraints\NotCompromisedPasswordValidator
+        arguments:
+            $httpClient: '@test.pwned_password_http_client'
+            $charset: '%kernel.charset%'
+            $enabled: true
+        tags: ['validator.constraint_validator']

@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\HistoriqueMdp;
 use App\Entity\User;
 use App\Form\ChangePasswordType;
+use App\Form\ProfileType;
 use App\Repository\HistoriqueMdpRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -17,6 +18,30 @@ use Symfony\Component\Form\FormError;
 
 final class ProfileController extends AbstractController
 {
+    #[Route('/profil/{id}/modifier', name: 'app_profile_edit', requirements: ['id' => '\\d+'], methods: ['GET', 'POST'])]
+    public function edit(User $user, Request $request, EntityManagerInterface $entityManager): Response
+    {
+        $this->denyAccessUnlessGranted('ROLE_USER');
+        $currentUser = $this->getUser();
+
+        // L'identifiant de l'URL n'accorde aucun droit : vérifier la cible avant le formulaire.
+        if (!$currentUser instanceof User
+            || ($currentUser->getId() !== $user->getId() && !$this->isGranted('ROLE_ADMIN'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $form = $this->createForm(ProfileType::class, $user);
+        $form->handleRequest($request);
+        if ($form->isSubmitted() && $form->isValid()) {
+            $entityManager->flush();
+            $this->addFlash('success', 'Les coordonnées ont été mises à jour.');
+
+            return $this->redirectToRoute('app_profile_edit', ['id' => $user->getId()]);
+        }
+
+        return $this->render('profile/edit.html.twig', ['profileForm' => $form, 'profileUser' => $user]);
+    }
+
     #[Route('/profil', name: 'app_profile', methods: ['GET', 'POST'])]
     public function index(Request $request, EntityManagerInterface $entityManager, HistoriqueMdpRepository $history, UserPasswordHasherInterface $hasher, PasswordHasherFactoryInterface $hasherFactory): Response
     {

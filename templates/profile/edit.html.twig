@@ -1,0 +1,18 @@
+{% extends 'base.html.twig' %}
+{% block title %}Modifier le profil · Gestion des accès{% endblock %}
+{% block body %}
+<h1>Modifier le profil</h1>
+<section class="card" style="max-width:650px">
+    <p>{{ profileUser.prenom }} {{ profileUser.nom }} · {{ profileUser.email }}</p>
+    {{ form_start(profileForm) }}
+        {{ form_errors(profileForm) }}
+        {{ form_row(profileForm.nom) }}
+        {{ form_row(profileForm.prenom) }}
+        {{ form_row(profileForm.adrRue) }}
+        {{ form_row(profileForm.ville) }}
+        {{ form_row(profileForm.cp) }}
+        <button type="submit">Enregistrer les coordonnées</button>
+    {{ form_end(profileForm) }}
+    <p><a href="{{ path('app_profile') }}">Retour à mon profil</a></p>
+</section>
+{% endblock %}

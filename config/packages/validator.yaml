@@ -8,4 +8,5 @@ framework:
 when@test:
     framework:
         validation:
-            not_compromised_password: false
+            # La validation reste active ; seul le service HTTP est simulé.
+            not_compromised_password: true
