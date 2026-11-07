@@ -13,7 +13,8 @@ final class TestDatabase
     ) {
     }
 
-    public function reset(): void
+    /** Lecture seule : à appeler aussi avant les migrations de test. */
+    public function assertSafe(): void
     {
         // Refuser la configuration dangereuse avant même la première requête.
         $params = $this->connection->getParams();
@@ -29,6 +30,11 @@ final class TestDatabase
             || stripos($actual['version'], 'MariaDB') === false) {
             throw new \RuntimeException('Nettoyage refusé : la connexion réelle doit utiliser MariaDB / dbSymfonyType_test.');
         }
+    }
+
+    public function reset(): void
+    {
+        $this->assertSafe();
 
         // Enfants avant parent : les contraintes restent actives.
         // Pas de DROP, de TRUNCATE ni de modification des migrations.

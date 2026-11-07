@@ -1,0 +1,37 @@
+#!/usr/bin/env php
+<?php
+
+use App\Kernel;
+use App\Tests\Support\TestDatabase;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Symfony\Component\Console\Input\ArrayInput;
+
+// Le script ne crée et ne supprime aucune base : elle doit déjà exister.
+// Il refuse un environnement explicite différent de test.
+$environment = $_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? getenv('APP_ENV');
+if ($environment && $environment !== 'test') {
+    fwrite(STDERR, "Préparation refusée : APP_ENV doit être test.\n");
+    exit(1);
+}
+$_SERVER['APP_ENV'] = $_ENV['APP_ENV'] = 'test';
+require dirname(__DIR__).'/tests/bootstrap.php';
+
+$kernel = new Kernel('test', (bool) ($_SERVER['APP_DEBUG'] ?? true));
+$kernel->boot();
+
+try {
+    $connection = $kernel->getContainer()->get('doctrine')->getConnection();
+    (new TestDatabase($connection, $kernel->getEnvironment()))->assertSafe();
+    $application = new Application($kernel);
+    $application->setAutoExit(false);
+    $input = new ArrayInput([
+        'command' => 'doctrine:migrations:migrate',
+        '--no-interaction' => true,
+        '--allow-no-migration' => true,
+    ]);
+    $exitCode = $application->run($input);
+} finally {
+    $kernel->shutdown();
+}
+
+exit($exitCode);

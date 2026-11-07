@@ -64,6 +64,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Equatab
     #[ORM\Column(length: 10)]
     #[Assert\NotBlank]
     #[Assert\Length(max: 10)]
+    #[Assert\Regex(pattern: '/^[0-9]{5}$/D', message: 'Le code postal doit contenir exactement cinq chiffres.')]
     private ?string $cp = null;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]

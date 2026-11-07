@@ -1,0 +1,82 @@
+name: Tests PHPUnit
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phpunit-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  phpunit:
+    # Nom stable à rendre obligatoire dans la règle « Protection main ».
+    name: PHPUnit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      APP_ENV: test
+      APP_DEBUG: '1'
+
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: dbSymfonyType_test
+          # Accès d'administration limité au conteneur jetable. Aucun compte
+          # root distant : le compte applicatif est créé avec un secret aléatoire.
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: '1'
+          MARIADB_ROOT_HOST: localhost
+        ports:
+          - 127.0.0.1:3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - name: Récupérer le code proposé par la pull request
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Préparer PHP et Composer
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: '8.2'
+          extensions: ctype, iconv, mbstring, pdo_mysql, xml, dom, intl
+          tools: composer:v2
+          coverage: none
+
+      - name: Créer les secrets temporaires et le compte MariaDB de test
+        shell: bash
+        env:
+          MARIADB_CONTAINER: ${{ job.services.mariadb.id }}
+        run: |
+          set -euo pipefail
+          test_secret="$(php -r 'echo bin2hex(random_bytes(32));')"
+          test_db_password="$(php -r 'echo bin2hex(random_bytes(32));')"
+          echo "::add-mask::$test_secret"
+          echo "::add-mask::$test_db_password"
+          docker exec -i "$MARIADB_CONTAINER" mariadb --user=root <<SQL
+          CREATE USER 'phpunit'@'%' IDENTIFIED BY '$test_db_password';
+          GRANT ALL PRIVILEGES ON \`dbSymfonyType\_test\`.* TO 'phpunit'@'%';
+          SQL
+          echo "APP_SECRET=$test_secret" >> "$GITHUB_ENV"
+          # Doctrine ajoute _test au nom de base, comme sur 4719.
+          echo "DATABASE_URL=mysql://phpunit:$test_db_password@127.0.0.1:3306/dbSymfonyType?charset=utf8mb4" >> "$GITHUB_ENV"
+
+      - name: Installer les versions de composer.lock
+        run: composer install --no-interaction --prefer-dist --no-progress --no-scripts
+
+      - name: Préparer uniquement la base MariaDB de test
+        run: php bin/prepare-test-database
+
+      - name: Exécuter les tests et vérifier leur indépendance
+        run: |
+          php bin/phpunit --testdox
+          php bin/phpunit --order-by=random --random-order-seed=4719
