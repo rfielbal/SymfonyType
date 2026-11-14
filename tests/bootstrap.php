@@ -1,5 +1,8 @@
 <?php
 
+// POINT D’ENTRÉE — PHPUnit charge ce fichier avant les tests, via phpunit.dist.xml.
+// Charger Symfony et sa configuration test ; refuser un autre environnement avant d’exécuter la suite.
+
 use Symfony\Component\Dotenv\Dotenv;
 
 require dirname(__DIR__).'/vendor/autoload.php';

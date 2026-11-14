@@ -1,5 +1,11 @@
 <?php
 
+// CYBER 3 — 01 à 04 : connexion/session ; 05 à 06 : administration ; 09 à 12 : inscription ; 13 à 15 : mots de passe/compte.
+// Les scénarios 07 et 08 sont dans ProfileSecurityTest.php ; les anciens tests restent dans SecurityTest.php.
+// Lire un cas : données de départ, requête ou formulaire envoyé, puis assertions sur HTTP et la base.
+// HTTP : 200 = accès réussi ; 302 = redirection ; 403 = accès interdit ; 422 = formulaire refusé.
+// Les constantes ci-dessous sont des données fictives de test, jamais des identifiants du serveur.
+
 namespace App\Tests\Functional;
 
 use App\Entity\User;
@@ -28,6 +34,7 @@ final class Cyber3SecurityTest extends WebTestCase
     private KernelBrowser $client;
     private ?TestDatabase $database = null;
 
+    // Avant CHAQUE cas : créer le client Symfony, vider la base dédiée et réinitialiser la limite de connexion.
     protected function setUp(): void
     {
         $this->client = static::createClient();
@@ -37,6 +44,7 @@ final class Cyber3SecurityTest extends WebTestCase
         static::getContainer()->get('cache.rate_limiter')->clear();
     }
 
+    // Après CHAQUE cas, même en échec : nettoyer les données fictives et fermer la connexion.
     protected function tearDown(): void
     {
         try {
@@ -48,11 +56,13 @@ final class Cyber3SecurityTest extends WebTestCase
         }
     }
 
+    // Outil Doctrine pour enregistrer ou relire les données ; ce n’est pas un test.
     private function em(): EntityManagerInterface
     {
         return static::getContainer()->get(EntityManagerInterface::class);
     }
 
+    // Fixture : créer un compte connu en base ; persist le prépare, flush l’enregistre. Ne teste pas l’inscription.
     private function user(string $email = self::ALICE, string $password = self::PASSWORD_A, bool $admin = false): User
     {
         $user = (new User())->setEmail($email)->setNom('Exemple')->setPrenom('Alice')
@@ -65,12 +75,14 @@ final class Cyber3SecurityTest extends WebTestCase
         return $user;
     }
 
+    // Soumettre le vrai formulaire de connexion : ici le mot de passe est réellement vérifié.
     private function login(string $email = self::ALICE, string $password = self::PASSWORD_A): void
     {
         $this->client->request('GET', '/connexion');
         $this->client->submitForm('Se connecter', ['email' => $email, 'password' => $password]);
     }
 
+    // Utiliser le lien de déconnexion fourni par Symfony, avec son jeton CSRF.
     private function logout(): void
     {
         $this->client->request('GET', '/profil');
@@ -79,6 +91,7 @@ final class Cyber3SecurityTest extends WebTestCase
         self::assertResponseRedirects('/');
     }
 
+    // Trois preuves du refus : retour à la connexion, message d’erreur et profil toujours inaccessible.
     private function assertLoginRefused(): void
     {
         self::assertResponseRedirects('/connexion');
@@ -89,6 +102,7 @@ final class Cyber3SecurityTest extends WebTestCase
     }
 
     /** Valeurs valides par défaut : un seul champ est altéré dans chaque cas négatif. */
+    // Envoyer une inscription valide par défaut ; $changes remplace uniquement les champs du cas testé.
     private function register(array $changes = []): void
     {
         $this->client->request('GET', '/inscription');
@@ -104,6 +118,7 @@ final class Cyber3SecurityTest extends WebTestCase
         ], $changes));
     }
 
+    // Vérifier le refus 422, l’erreur sur le BON champ et l’absence de compte/connexion enregistrés.
     private function assertRegistrationRefused(string $field): void
     {
         self::assertResponseStatusCodeSame(422);
@@ -115,6 +130,7 @@ final class Cyber3SecurityTest extends WebTestCase
         self::assertSame(0, $this->historyCount());
     }
 
+    // Envoyer le mot de passe actuel et deux saisies identiques du nouveau, via le formulaire du profil.
     private function changePassword(string $old, string $new): void
     {
         $this->client->request('GET', '/profil');
@@ -126,21 +142,25 @@ final class Cyber3SecurityTest extends WebTestCase
         ]);
     }
 
+    // Nombre de connexions enregistrées ; la base est propre au début de chaque test.
     private function historyCount(): int
     {
         return (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM historique_connexion');
     }
 
+    // Nombre d’anciens mots de passe archivés sous forme de hachages.
     private function passwordHistoryCount(): int
     {
         return (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM historique_mdp');
     }
 
+    // Relire le hachage actuel d’Alice : comparer avant/après révèle une modification réelle.
     private function storedPassword(): string
     {
         return (string) $this->em()->getConnection()->fetchOne('SELECT password FROM user WHERE email = ?', [self::ALICE]);
     }
 
+    // Depuis /admin, soumettre le formulaire de suspension/réactivation avec son jeton CSRF.
     private function toggleUser(int $id): void
     {
         $crawler = $this->client->request('GET', '/admin');
@@ -150,6 +170,7 @@ final class Cyber3SecurityTest extends WebTestCase
     }
 
     #[DataProvider('protectedPages')]
+    // Scénario 01 — visiteur sans session : espace personnel et URL directe de modification refusés.
     public function test01AccesAnonymeEtUrlDirecteProtegeeRefuses(bool $edition): void
     {
         $id = $this->user()->getId();
@@ -158,12 +179,14 @@ final class Cyber3SecurityTest extends WebTestCase
         self::assertSame(0, $this->historyCount());
     }
 
+    // DataProvider : chaque yield fournit les arguments d’une exécution indépendante du test au-dessus.
     public static function protectedPages(): iterable
     {
         yield 'espace personnel sans connexion' => [false];
         yield 'URL de modification saisie directement sans connexion' => [true];
     }
 
+    // Scénarios 01 et 02 — connexion valide puis deux pages protégées, avec une seule authentification.
     public function test02ConnexionValideEtSessionConserveeSurDeuxPagesProtegees(): void
     {
         $id = $this->user()->getId();
@@ -179,15 +202,20 @@ final class Cyber3SecurityTest extends WebTestCase
     }
 
     #[DataProvider('incorrectCredentials')]
+    // Scénario 03 — chaque couple identifiant/mot de passe incorrect doit être refusé.
     public function test03IdentifiantsIncorrectsRefuses(string $email, string $password): void
     {
+        // 1. PRÉPARER : Alice et Bob ont des mots de passe différents et connus.
         $this->user();
         $this->user(self::BOB, self::PASSWORD_B);
+        // 2. AGIR : essayer le couple fourni par le DataProvider.
         $this->login($email, $password);
+        // 3. VÉRIFIER : refus d’accès et aucune connexion réussie enregistrée.
         $this->assertLoginRefused();
         self::assertSame(0, $this->historyCount());
     }
 
+    // Trois cas séparés : mauvais mot de passe, mot de passe de Bob avec Alice, compte inconnu.
     public static function incorrectCredentials(): iterable
     {
         yield 'mot de passe incorrect pour Alice' => [self::ALICE, 'Incorrect!9281'];
@@ -195,6 +223,7 @@ final class Cyber3SecurityTest extends WebTestCase
         yield 'identifiant inexistant' => ['inconnu@example.test', self::PASSWORD_A];
     }
 
+    // Scénario 04 — après déconnexion, rejouer l’ancien cookie ne doit pas restaurer la session.
     public function test04DeconnexionInvalideAussiAncienCookieDeSession(): void
     {
         $this->user();
@@ -204,6 +233,7 @@ final class Cyber3SecurityTest extends WebTestCase
         $sessionName = $this->client->getRequest()->getSession()->getName();
         $cookie = $this->client->getCookieJar()->get($sessionName);
         self::assertNotNull($cookie, 'Le cookie authentifié doit exister avant sa capture.');
+        // Garder une copie du cookie AVANT que la déconnexion ne le supprime ou le modifie.
         $oldCookie = clone $cookie;
         self::assertNotSame('', $oldCookie->getValue());
 
@@ -221,6 +251,7 @@ final class Cyber3SecurityTest extends WebTestCase
     }
 
     #[DataProvider('administrationAccess')]
+    // Scénario 05 — comparer administrateur, utilisateur standard et visiteur sur la même page /admin.
     public function test05AccesAdministrationSelonAuthentificationEtRole(?bool $admin, int $status): void
     {
         if ($admin !== null) {
@@ -239,6 +270,7 @@ final class Cyber3SecurityTest extends WebTestCase
         }
     }
 
+    // Arguments fournis au test : rôle (true/false/null), puis code HTTP attendu (200/403/302).
     public static function administrationAccess(): iterable
     {
         yield 'administrateur autorisé' => [true, 200];
@@ -246,6 +278,7 @@ final class Cyber3SecurityTest extends WebTestCase
         yield 'visiteur redirigé vers connexion' => [null, 302];
     }
 
+    // Scénario 06 — l’administrateur voit Bob, modifie son prénom et suspend son compte.
     public function test06AdministrateurListeModifieEtSuspendBob(): void
     {
         $admin = $this->user(self::ADMIN, admin: true);
@@ -264,6 +297,7 @@ final class Cyber3SecurityTest extends WebTestCase
     }
 
     #[DataProvider('forbiddenAdminActions')]
+    // Scénario 06 — isoler le contrôle des droits avec un formulaire valide ; Bob doit rester inchangé.
     public function test06AliceNePeutNiSuspendreNiSupprimerBob(string $action): void
     {
         $alice = $this->user();
@@ -282,6 +316,7 @@ final class Cyber3SecurityTest extends WebTestCase
         self::assertSame(3, $this->em()->getRepository(User::class)->count([]));
     }
 
+    // Deux cas indépendants : tentative de suspension, puis de suppression.
     public static function forbiddenAdminActions(): iterable
     {
         yield 'suspension HTTP directe' => ['suspendre'];
@@ -289,15 +324,20 @@ final class Cyber3SecurityTest extends WebTestCase
     }
 
     #[DataProvider('mandatoryFields')]
+    // Scénario 09 — vider un seul champ par exécution ; tous les autres restent valides.
     public function test09ChaqueChampObligatoireVideRefuseSansInsertion(string $field): void
     {
+        // 1. PRÉPARER : si le mot de passe est testé, vider aussi sa confirmation.
         $changes = $field === 'plainPassword_first'
             ? ['registration[plainPassword][first]' => '', 'registration[plainPassword][second]' => '']
             : ['registration['.$field.']' => ''];
+        // 2. AGIR : envoyer le formulaire avec ce champ vide.
         $this->register($changes);
+        // 3. VÉRIFIER : erreur ciblée, zéro compte et zéro connexion.
         $this->assertRegistrationRefused($field);
     }
 
+    // Liste des champs obligatoires : chaque valeur devient un cas PHPUnit distinct.
     public static function mandatoryFields(): iterable
     {
         foreach (['nom', 'prenom', 'adrRue', 'cp', 'plainPassword_first', 'email', 'ville'] as $field) {
@@ -306,18 +346,23 @@ final class Cyber3SecurityTest extends WebTestCase
     }
 
     #[DataProvider('invalidRegistrationData')]
+    // Scénario 10 — injecter une valeur invalide et vérifier son erreur sans création de compte.
     public function test10ChaqueDonneeInvalideRefuseeSansInsertion(string $field, string $value): void
     {
+        // 1. PRÉPARER : remplacer uniquement le champ désigné par la valeur invalide.
         $changes = $field === 'plainPassword_first'
             ? ['registration[plainPassword][first]' => $value, 'registration[plainPassword][second]' => $value]
             : ['registration['.$field.']' => $value];
+        // 2. AGIR : envoyer le vrai formulaire d’inscription.
         $this->register($changes);
+        // 3. VÉRIFIER : le refus vient du champ testé, et aucun compte n’est enregistré.
         $this->assertRegistrationRefused($field);
         if ($value === self::COMPROMISED_PASSWORD) {
             self::assertSelectorTextContains('main', 'Ce mot de passe apparaît dans une fuite de données');
         }
     }
 
+    // Pour ajouter un cas : ajouter un yield avec [champ, valeur] ; le nom avant => apparaît dans le résultat.
     public static function invalidRegistrationData(): iterable
     {
         yield 'code postal alphabétique ABCDE' => ['cp', 'ABCDE'];
@@ -330,6 +375,7 @@ final class Cyber3SecurityTest extends WebTestCase
         yield 'mot de passe compromis' => ['plainPassword_first', self::COMPROMISED_PASSWORD];
     }
 
+    // Scénario 11 — vérifier le compte, son hachage et une nouvelle connexion après déconnexion.
     public function test11InscriptionValideCreeCompteHachePuisPermetNouvelleConnexion(): void
     {
         $this->register();
@@ -350,6 +396,7 @@ final class Cyber3SecurityTest extends WebTestCase
         self::assertSame(2, $this->historyCount());
     }
 
+    // Scénario 12 — plusieurs refus gardent la base vide ; la correction crée un seul compte.
     public function test12RefusSuccessifsPuisCorrectionNeCreeQuUnSeulCompte(): void
     {
         $this->register(['registration[cp]' => 'ABCDE']);
@@ -368,6 +415,7 @@ final class Cyber3SecurityTest extends WebTestCase
         self::assertSame(1, $this->em()->getRepository(User::class)->count([]));
     }
 
+    // Scénario 13 — parcours complet : connexion, suspension par admin, refus, réactivation et nouvelle connexion.
     public function test13CompteActifPuisSuspenduPuisReactiveParAdministrateur(): void
     {
         $id = $this->user()->getId();
@@ -381,6 +429,7 @@ final class Cyber3SecurityTest extends WebTestCase
         $this->toggleUser($id);
         self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT est_actif FROM user WHERE id = ?', [$id]));
         $this->logout();
+        // Compte désormais suspendu : les mêmes bons identifiants doivent être refusés.
         $this->login();
         $this->assertLoginRefused();
         self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM historique_connexion WHERE user_id = ?', [$id]));
@@ -388,6 +437,7 @@ final class Cyber3SecurityTest extends WebTestCase
         $this->login(self::ADMIN);
         self::assertResponseRedirects('/profil');
         $this->toggleUser($id);
+        // Après la deuxième action de l’administrateur, le compte doit redevenir actif.
         self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT est_actif FROM user WHERE id = ?', [$id]));
         $this->logout();
         $this->login();
@@ -397,11 +447,13 @@ final class Cyber3SecurityTest extends WebTestCase
         self::assertSame(2, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM historique_connexion WHERE user_id = ?', [$id]));
     }
 
+    // Scénario 14 — effectuer réellement A puis B puis C ; A et B doivent ensuite être refusés.
     public function test14CycleReelDeMotsDePasseABCRefuseReutilisationDeAEtB(): void
     {
         $this->user();
         $this->login();
         self::assertResponseRedirects('/profil');
+        // Créer l’historique par les vrais changements de formulaire, pas par insertion directe en base.
         $this->changePassword(self::PASSWORD_A, self::PASSWORD_B);
         self::assertResponseRedirects('/profil');
         self::assertSame(1, $this->passwordHistoryCount());
@@ -410,6 +462,7 @@ final class Cyber3SecurityTest extends WebTestCase
         self::assertSame(2, $this->passwordHistoryCount());
         $currentHash = $this->storedPassword();
 
+        // Essayer chacun des deux anciens mots de passe ; C et les deux archives doivent rester inchangés.
         foreach ([self::PASSWORD_A, self::PASSWORD_B] as $oldPassword) {
             $this->changePassword(self::PASSWORD_C, $oldPassword);
             self::assertResponseStatusCodeSame(422);
@@ -422,6 +475,7 @@ final class Cyber3SecurityTest extends WebTestCase
         self::assertResponseRedirects('/profil');
     }
 
+    // Scénario 15 — mauvais mot de passe actuel : message attendu, hachage inchangé, aucune archive ajoutée.
     public function test15MotDePasseActuelIncorrectNeModifieRien(): void
     {
         $this->user();
@@ -435,6 +489,7 @@ final class Cyber3SecurityTest extends WebTestCase
     }
 
     #[DataProvider('invalidNewPasswords')]
+    // Scénario 15 — nouveau mot de passe faible ou compromis : aucun changement enregistré.
     public function test15NouveauMotDePasseNonConformeNeModifieRien(string $password, string $message): void
     {
         $this->user();
@@ -447,12 +502,14 @@ final class Cyber3SecurityTest extends WebTestCase
         self::assertSame(0, $this->passwordHistoryCount());
     }
 
+    // Chaque cas fournit le mot de passe refusé et le message d’erreur attendu.
     public static function invalidNewPasswords(): iterable
     {
         yield 'nouveau mot de passe faible' => ['abc', 'Utilisez au moins 10 caractères'];
         yield 'nouveau mot de passe compromis' => [self::COMPROMISED_PASSWORD, 'Ce mot de passe apparaît dans une fuite de données'];
     }
 
+    // Scénario 15 — changement valide : ancien hachage archivé, nouveau mot de passe accepté, ancien refusé.
     public function test15ChangementAutorisePermetNouveauMotDePasseEtRefuseAncien(): void
     {
         $this->user();

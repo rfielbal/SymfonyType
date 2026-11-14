@@ -1,5 +1,8 @@
 <?php
 
+// OUTIL PARTAGÉ — appelé par setUp() et tearDown() ; les méthodes ici ne sont pas des tests PHPUnit.
+// But : repartir de données connues sans jamais nettoyer une base de développement ou de déploiement.
+
 namespace App\Tests\Support;
 
 use Doctrine\DBAL\Connection;
@@ -32,6 +35,7 @@ final class TestDatabase
         }
     }
 
+    // Nettoyer les comptes fictifs et leurs historiques uniquement APRÈS validation de la destination.
     public function reset(): void
     {
         $this->assertSafe();
@@ -45,6 +49,7 @@ final class TestDatabase
         });
     }
 
+    // Libérer la connexion utilisée par le test.
     public function close(): void
     {
         $this->connection->close();

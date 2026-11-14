@@ -1,5 +1,8 @@
 <?php
 
+// CYBER 2 — tests unitaires des contraintes de mot de passe, sans navigateur ni base de données.
+// MockHttpClient simule seulement le service externe de compromission ; le vrai validateur reste exécuté.
+
 namespace App\Tests\Unit;
 
 use App\Security\PasswordPolicy;
@@ -13,6 +16,7 @@ use Symfony\Component\Validator\Validation;
 
 final class PasswordPolicyTest extends TestCase
 {
+    // Mot de passe conforme aux règles de forme, mais signalé compromis : vérifier précisément cette erreur.
     public function testToutesLesReglesEtRefusMotDePasseCompromis(): void
     {
         $password = 'Orbite!Nuage-7319';
@@ -31,6 +35,7 @@ final class PasswordPolicyTest extends TestCase
         self::assertSame(NotCompromisedPassword::COMPROMISED_PASSWORD_ERROR, $errors[0]->getCode());
     }
 
+    // Service simulé sans fuite : zéro erreur pour le mot de passe fort, plusieurs erreurs pour « abc ».
     public function testMotDePasseFortAccepteEtFaibleRefuse(): void
     {
         $http = new MockHttpClient(fn () => new MockResponse('00000000000000000000000000000000000:0'));
