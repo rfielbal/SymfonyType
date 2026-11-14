@@ -1,5 +1,8 @@
 <?php
 
+// COMPLÉMENT — vérifier le garde-fou du nettoyage, sans ouvrir de connexion à une vraie base.
+// createMock() remplace Doctrine ; expects(never()) prouve qu’aucune opération interdite n’est appelée.
+
 namespace App\Tests\Unit;
 
 use App\Tests\Support\TestDatabase;
@@ -11,6 +14,7 @@ use PHPUnit\Framework\TestCase;
 final class TestDatabaseTest extends TestCase
 {
     #[DataProvider('unsafeConfigurations')]
+    // Configuration non autorisée : attendre une exception avant toute lecture ou écriture SQL.
     public function testConfigurationDangereuseRefuseeAvantTouteRequete(string $environment, array $params): void
     {
         $connection = $this->createMock(Connection::class);
@@ -24,6 +28,7 @@ final class TestDatabaseTest extends TestCase
         (new TestDatabase($connection, $environment))->reset();
     }
 
+    // Chaque jeu de données représente une erreur de configuration indépendante.
     public static function unsafeConfigurations(): iterable
     {
         yield 'environnement développement' => ['dev', ['driver' => 'pdo_mysql', 'dbname' => 'dbSymfonyType_test']];
@@ -35,6 +40,7 @@ final class TestDatabaseTest extends TestCase
     }
 
     #[DataProvider('unsafeServers')]
+    // Configuration plausible mais serveur/base inattendus : une lecture de contrôle, aucune écriture.
     public function testConnexionReelleInattendueRefuseeAvantTouteEcriture(array|false $actual): void
     {
         $connection = $this->createMock(Connection::class);
@@ -49,6 +55,7 @@ final class TestDatabaseTest extends TestCase
         (new TestDatabase($connection, 'test'))->reset();
     }
 
+    // Simuler les résultats de SELECT DATABASE(), VERSION() ; aucune vraie base n’est utilisée ici.
     public static function unsafeServers(): iterable
     {
         yield 'base réelle différente' => [['db' => 'dbSymfonyType', 'version' => '11.4.5-MariaDB']];

@@ -1,5 +1,11 @@
 <?php
 
+// CYBER 3 — scénarios 7 (profil d’autrui) et 8 (rôles et habilitations).
+// Repères : user() prépare les comptes ; profileData() lit le formulaire ; account() relit la base.
+// loginUser() prépare une session, sans tester le formulaire de connexion.
+// Une assertion compare un résultat attendu à celui obtenu : assertSame(attendu, obtenu).
+// Pour l’oral : rechercher testScenario07AliceNePeutPasOuvrirProfilBob ou testScenario08AliceModifieSonPrenomSansChangerSesRoles.
+
 namespace App\Tests\Functional;
 
 use App\Entity\User;
@@ -16,6 +22,7 @@ final class ProfileSecurityTest extends WebTestCase
     private KernelBrowser $client;
     private ?TestDatabase $database = null;
 
+    // Avant CHAQUE cas : créer le client Symfony, vider la base dédiée et réinitialiser la limite de connexion.
     protected function setUp(): void
     {
         $this->client = static::createClient();
@@ -25,6 +32,7 @@ final class ProfileSecurityTest extends WebTestCase
         static::getContainer()->get('cache.rate_limiter')->clear();
     }
 
+    // Après CHAQUE cas, même en échec : nettoyer les données fictives et fermer la connexion.
     protected function tearDown(): void
     {
         try {
@@ -36,11 +44,13 @@ final class ProfileSecurityTest extends WebTestCase
         }
     }
 
+    // Outil Doctrine pour enregistrer ou relire les données ; ce n’est pas un test.
     private function em(): EntityManagerInterface
     {
         return static::getContainer()->get(EntityManagerInterface::class);
     }
 
+    // Fixture : compte fictif réellement enregistré dans MariaDB de test ; admin=true donne ROLE_ADMIN.
     private function user(string $prenom = 'Alice', bool $admin = false): User
     {
         $user = (new User())->setEmail(strtolower($prenom).'@example.test')
@@ -56,6 +66,7 @@ final class ProfileSecurityTest extends WebTestCase
     }
 
     /** Relire SQL évite de confondre une entité modifiée en mémoire avec une écriture en base. */
+    // Photo de la ligne SQL : comparer avant/après vérifie que les données sont restées identiques.
     private function account(int $id): array
     {
         $row = $this->em()->getConnection()->fetchAssociative('SELECT * FROM user WHERE id = ?', [$id]);
@@ -64,6 +75,7 @@ final class ProfileSecurityTest extends WebTestCase
         return $row;
     }
 
+    // Ouvrir le formulaire autorisé et récupérer tous ses champs, dont le jeton CSRF de la session.
     private function profileData(int $id): array
     {
         $crawler = $this->client->request('GET', "/profil/$id/modifier");
@@ -72,8 +84,10 @@ final class ProfileSecurityTest extends WebTestCase
         return $crawler->selectButton('Enregistrer les coordonnées')->form()->getPhpValues();
     }
 
+    // Scénario 07 — Alice modifie ses coordonnées ; email, rôle, mot de passe et état restent inchangés.
     public function testScenario07AliceModifieSonPropreProfil(): void
     {
+        // 1. PRÉPARER : garder une copie du compte avant la modification.
         $alice = $this->user();
         $id = $alice->getId();
         $before = $this->account($id);
@@ -81,11 +95,13 @@ final class ProfileSecurityTest extends WebTestCase
         $this->client->request('GET', '/profil');
         $this->client->clickLink('Modifier mes coordonnées');
         self::assertResponseIsSuccessful();
+        // 2. AGIR : envoyer le vrai formulaire ; les noms profile[...] désignent ses champs.
         $this->client->submitForm('Enregistrer les coordonnées', [
             'profile[nom]' => 'Martin', 'profile[prenom]' => 'Alicia',
             'profile[adrRue]' => '2 rue du Centre', 'profile[ville]' => 'Lille', 'profile[cp]' => '59000',
         ]);
         self::assertResponseRedirects("/profil/$id/modifier");
+        // 3. VÉRIFIER : relire la base, contrôler les nouvelles valeurs puis les champs sensibles.
         $after = $this->account($id);
         foreach (['nom' => 'Martin', 'prenom' => 'Alicia', 'adr_rue' => '2 rue du Centre', 'ville' => 'Lille', 'cp' => '59000'] as $field => $value) {
             self::assertSame($value, $after[$field]);
@@ -95,17 +111,22 @@ final class ProfileSecurityTest extends WebTestCase
         }
     }
 
+    // Scénario 07 — IDOR/BOLA : être connecté ne donne aucun droit sur le profil de Bob.
     public function testScenario07AliceNePeutPasOuvrirProfilBob(): void
     {
+        // 1. PRÉPARER : créer Alice et Bob, puis mémoriser les données de Bob.
         $alice = $this->user();
         $bobId = $this->user('Bob')->getId();
         $before = $this->account($bobId);
+        // 2. AGIR : Alice demande le formulaire appartenant à Bob (GET = lecture de la page).
         $this->client->loginUser($alice);
         $this->client->request('GET', "/profil/$bobId/modifier");
+        // 3. VÉRIFIER : accès interdit (403), puis données de Bob inchangées en base avec assertSame().
         self::assertResponseStatusCodeSame(403);
         self::assertSame($before, $this->account($bobId));
     }
 
+    // Scénario 07 — même URL de modification, mais identifiant de Bob : l’accès doit être refusé.
     public function testScenario07RemplacementIdentifiantDansUrlRefuse(): void
     {
         $alice = $this->user();
@@ -119,6 +140,7 @@ final class ProfileSecurityTest extends WebTestCase
         self::assertSame($before, $this->account($bobId));
     }
 
+    // Scénario 07 — envoyer directement un POST ne doit ni contourner les droits ni modifier Bob.
     public function testScenario07RequeteDirecteSurBobRefuseeSansEcriture(): void
     {
         $alice = $this->user();
@@ -133,6 +155,7 @@ final class ProfileSecurityTest extends WebTestCase
         self::assertSame($before, $this->account($bobId));
     }
 
+    // Scénario 07 — cas autorisé : un administrateur peut modifier Bob.
     public function testScenario07AdministrateurModifieProfilBob(): void
     {
         $admin = $this->user('Admin', true);
@@ -144,14 +167,18 @@ final class ProfileSecurityTest extends WebTestCase
         self::assertSame('Robert', $this->account($bobId)['prenom']);
     }
 
+    // Scénario 08 — changer le prénom doit fonctionner sans donner de nouveaux droits.
     public function testScenario08AliceModifieSonPrenomSansChangerSesRoles(): void
     {
+        // 1. PRÉPARER : créer Alice et mémoriser ses rôles actuels.
         $alice = $this->user();
         $id = $alice->getId();
         $roles = $this->account($id)['roles'];
         $this->client->loginUser($alice);
         $this->profileData($id);
+        // 2. AGIR : seule la valeur du prénom est remplacée ; les autres champs restent ceux du formulaire.
         $this->client->submitForm('Enregistrer les coordonnées', ['profile[prenom]' => 'Alicia']);
+        // 3. VÉRIFIER : redirection après enregistrement, prénom modifié, rôles identiques et /admin toujours interdit.
         self::assertResponseRedirects("/profil/$id/modifier");
         $after = $this->account($id);
         self::assertSame('Alicia', $after['prenom']);
@@ -161,6 +188,7 @@ final class ProfileSecurityTest extends WebTestCase
     }
 
     #[DataProvider('forbiddenProfileFields')]
+    // Scénario 08 et compléments — un champ sensible ajouté au formulaire doit être refusé.
     public function testScenario08ChampSensibleInjecteRefuseSansEcriture(string $field, mixed $value): void
     {
         $alice = $this->user();
@@ -177,6 +205,7 @@ final class ProfileSecurityTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
+    // Jeux de données : chaque yield lance un cas indépendant avec un champ injecté différent.
     public static function forbiddenProfileFields(): iterable
     {
         yield 'auto-attribution ROLE_ADMIN' => ['roles', ['ROLE_ADMIN']];
@@ -185,6 +214,7 @@ final class ProfileSecurityTest extends WebTestCase
         yield 'statut du compte' => ['estActif', false];
     }
 
+    // Scénario 08 — roles placé à côté du formulaire doit rester sans effet sur les droits.
     public function testScenario08ParametreRolesHorsFormulaireSansElevation(): void
     {
         $alice = $this->user();
@@ -200,6 +230,7 @@ final class ProfileSecurityTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
+    // Scénario 08 — Alice ne peut changer les rôles de Bob, ni via son profil ni via l’administration.
     public function testScenario08AliceNePeutPasModifierRolesBob(): void
     {
         $alice = $this->user();
@@ -219,6 +250,7 @@ final class ProfileSecurityTest extends WebTestCase
         self::assertSame($before, $this->account($bobId));
     }
 
+    // Scénario 08 — vérifier le rôle enregistré puis son effet réel sur l’accès à /admin.
     public function testScenario08AdministrateurAttribueRoleAutoriseBob(): void
     {
         $admin = $this->user('Admin', true);
@@ -236,6 +268,7 @@ final class ProfileSecurityTest extends WebTestCase
         self::assertResponseIsSuccessful();
     }
 
+    // Complément — même un administrateur doit respecter la liste des rôles autorisés.
     public function testAdministrateurNePeutPasAttribuerRoleHorsListe(): void
     {
         $admin = $this->user('Admin', true);
@@ -251,6 +284,7 @@ final class ProfileSecurityTest extends WebTestCase
     }
 
     #[DataProvider('invalidCsrfTokens')]
+    // Complément CSRF — être propriétaire du profil ne suffit pas si le jeton du formulaire est invalide.
     public function testModificationProfilSansJetonCsrfValideRefusee(?string $token): void
     {
         $alice = $this->user();
@@ -269,6 +303,7 @@ final class ProfileSecurityTest extends WebTestCase
         self::assertSame($before, $this->account($id));
     }
 
+    // Deux exécutions : champ du jeton absent, puis jeton falsifié.
     public static function invalidCsrfTokens(): iterable
     {
         yield 'jeton absent' => [null];

@@ -1,5 +1,8 @@
 <?php
 
+// OUTIL DE TEST — réponse prévisible du service de mots de passe compromis, sans requête Internet.
+// Le mot de passe fictif ci-dessous est signalé compromis ; les autres reçoivent une réponse sans correspondance.
+
 namespace App\Tests\Support;
 
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -10,6 +13,7 @@ final class PwnedPasswordHttpClient
 {
     public const COMPROMISED_PASSWORD = 'Fuite!Comete-7392';
 
+    // Construire le client simulé injecté en environnement test ; conserver le format attendu par le validateur.
     public static function create(): MockHttpClient
     {
         return new MockHttpClient(static function (string $method, string $url): MockResponse {
